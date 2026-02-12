@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pro Water Ring Toss</title>
+    <style>
+        :root {
+            --case-color: #4fc3f7;
+            --case-shadow: #0288d1;
+            --screen-bg: #e1f5fe;
+            --btn-l: #ffb74d;
+            --btn-r: #81c784;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #263238;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Courier New', monospace;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .game-case {
+            width: 340px;
+            height: 200px;
+            background: linear-gradient(to bottom right, var(--case-color), var(--case-shadow));
+            border-radius: 50px;
+            padding: 20px;
+            box-shadow: 
+                0 20px 50px rgba(0,0,0,0.5),
+                inset 2px 2px 5px rgba(255,255,255,0.3),
+                inset -5px -5px 15px rgba(0,0,0,0.2);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .screen-frame {
+            width: 260px;
+            height: 150px;
+            background: #37474f;
+            border-radius: 15px;
+            padding: 10px;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .screen {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #b3e5fc 0%, #4fc3f7 100%);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.1);
+            box-shadow: inset 0 0 30px rgba(0,100,200,0.1);
+        }
+
+        .glare {
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 40%;
+            background: linear-gradient(170deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 60%);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls-area {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-sizing: border-box;
+            pointer-events: none;
+        }
+
+        .btn {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 
+                0 6px 0 rgba(0,0,0,0.2),
+                0 8px 10px rgba(0,0,0,0.3),
+                inset 0 3px 5px rgba(255,255,255,0.4);
+            cursor: pointer;
+            pointer-events: auto;
+            transition: transform 0.05s, box-shadow 0.05s;
+            position: relative;
+            top: 0;
+        }
+
+        .btn-l { background-color: var(--btn-l); }
+        .btn-r { background-color: var(--btn-r); }
+
+        .btn.pressed {
+            transform: translateY(6px);
+            box-shadow: 
+                0 0 0 rgba(0,0,0,0.2),
+                inset 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .label {
+            position: absolute;
+            color: rgba(0,0,0,0.4);
+            font-size: 10px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        .lbl-title { top: 18px; width: 100%; text-align: center; font-size: 12px; }
+        .lbl-l { bottom: 15px; left: 65px; }
+        .lbl-r { bottom: 15px; right: 65px; }
+
+        .key-hint {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,255,255,0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: white;
+            font-size: 10px;
+            opacity: 0.5;
+        }
+
+        #score-board {
+            position: absolute;
+            top: 5px; right: 8px;
+            font-size: 14px;
+            color: rgba(0,0,0,0.6);
+            z-index: 5;
+            font-weight: bold;
+        }
+
+        #win-msg {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: rgba(255,255,255,0.9);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 2px solid gold;
+            text-align: center;
+            color: #f57f17;
+            font-weight: bold;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 20;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        #win-msg.show { transform: translate(-50%, -50%) scale(1); }
+
+    </style>
+</head>
+<body>
+
+    <div class="game-case">
+        <div class="label lbl-title">HYDRO-JET 3000</div>
+        
+        <div class="screen-frame">
+            <div class="screen">
+                <div class="glare"></div>
+                <canvas id="gameCanvas"></canvas>
+                <div id="score-board">0 / 8</div>
+                <div id="win-msg">COMPLETE!<br><small>Click to Reset</small></div>
+            </div>
+        </div>
+
+        <div class="controls-area">
+            <div style="position:relative">
+                <div class="key-hint">A / &larr;</div>
+                <button class="btn btn-l" id="btn-left"></button>
+            </div>
+            <div class="label lbl-l">L-JET</div>
+            <div class="label lbl-r">R-JET</div>
+            <div style="position:relative">
+                <div class="key-hint">D / &rarr;</div>
+                <button class="btn btn-r" id="btn-right"></button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    /**
+     * Water Ring Toss Engine v5
+     * Fixed: Better jet force balance, ring-to-ring physics, proper pole landing from top only
+     */
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score-board');
+    const winEl = document.getElementById('win-msg');
+
+    const dpr = window.devicePixelRatio || 1;
+    const width = 260;
+    const height = 150;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+
+    // Game boundaries
+    const FLOOR_Y = 135;
+    const CEILING_Y = 5;
+    const WALL_LEFT = 8;
+    const WALL_RIGHT = 252;
+
+    // --- Audio System ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playSound(type) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'pump') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.12);
+            gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.12);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        } else if (type === 'score') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(900, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.25);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.25);
+        }
+    }
+
+    // --- Physics Configuration ---
+    const PHYSICS = {
+        // Gravity and buoyancy - balanced for realistic float
+        gravity: 0.030,
+        buoyancy: 0.022,
+        
+        // Water resistance
+        waterDragX: 0.965,
+        waterDragY: 0.958,
+        
+        // Velocity limits
+        maxVelocity: 3.5,
+        
+        // Water jet - balanced for realistic fluid feel
+        jetBuildupRate: 0.055,       // Faster buildup
+        jetMaxPower: 1.0,            // Higher max power
+        jetDecay: 0.90,
+        jetCurrentStrength: 0.35,    // Stronger current effect
+        jetBurstImpulse: 0.35,       // Good initial burst
+        jetSpreadRadius: 90,
+        jetVerticalRatio: 0.75,
+        
+        // Ring-to-ring collision
+        ringCollisionRadius: 15,
+        ringCollisionForce: 0.15,
+        ringCollisionDamping: 0.65,
+        
+        // Natural movement - more dynamic
+        turbulence: 0.018,
+        wobbleStrength: 0.008,
+        convectionStrength: 0.003,   // Circular water movement
+        
+        // Ring dimensions
+        ringOuterRadius: 7,
+        ringInnerRadius: 4,
+        
+        // Pole settings
+        poleWidth: 6,
+        poleLandingTolerance: 4,
+        poleLandingMaxSpeed: 1.5,
+        
+        // Stacked ring behavior
+        stackSlideSpeed: 0.7,
+        stackUnseatThreshold: 0.6,
+    };
+
+    // --- Input State ---
+    const Input = {
+        left: false,
+        right: false,
+        jetPowerL: 0,
+        jetPowerR: 0,
+        jetBurstL: 0,
+        jetBurstR: 0,
+        frameCount: 0
+    };
+
+    // --- Water Field ---
+    class WaterField {
+        constructor() {
+            this.bubbles = [];
+            this.time = 0;
+        }
+
+        update() {
+            this.time += 0.016;
+
+            // Spawn bubbles when jets active
+            if (Input.jetPowerL > 0.08 && Math.random() > 0.5) {
+                this.bubbles.push(new Bubble(20 + Math.random() * 20));
+            }
+            if (Input.jetPowerR > 0.08 && Math.random() > 0.5) {
+                this.bubbles.push(new Bubble(220 + Math.random() * 20));
+            }
+
+            for (let i = this.bubbles.length - 1; i >= 0; i--) {
+                if (!this.bubbles[i].update()) {
+                    this.bubbles.splice(i, 1);
+                }
+            }
+        }
+
+        // Get combined current force at position
+        getCurrentAt(x, y) {
+            let fx = 0, fy = 0;
+
+            // Left jet - originates from bottom-left corner
+            if (Input.jetPowerL > 0.01) {
+                const dx = x - 20;
+                const dy = y - (FLOOR_Y + 10);
+                const distSq = dx * dx + dy * dy;
+                const dist = Math.sqrt(distSq);
+                
+                // Force falls off with distance
+                const falloff = Math.exp(-dist / PHYSICS.jetSpreadRadius);
+                const force = Input.jetPowerL * falloff;
+                
+                // Upward current with slight rightward spread
+                fy -= force * PHYSICS.jetVerticalRatio;
+                fx += force * (1 - PHYSICS.jetVerticalRatio) * (dx > 0 ? 0.4 : 0.2);
+                
+                // Burst effect - quick initial push
+                if (Input.jetBurstL > 0.02) {
+                    const burstFalloff = Math.exp(-dist / 50);
+                    fy -= Input.jetBurstL * burstFalloff * 1.8;
+                    fx += Input.jetBurstL * burstFalloff * 0.4 * (dx > 0 ? 1 : 0.3);
+                }
+            }
+
+            // Right jet - originates from bottom-right corner
+            if (Input.jetPowerR > 0.01) {
+                const dx = x - 240;
+                const dy = y - (FLOOR_Y + 10);
+                const distSq = dx * dx + dy * dy;
+                const dist = Math.sqrt(distSq);
+                
+                const falloff = Math.exp(-dist / PHYSICS.jetSpreadRadius);
+                const force = Input.jetPowerR * falloff;
+                
+                fy -= force * PHYSICS.jetVerticalRatio;
+                fx -= force * (1 - PHYSICS.jetVerticalRatio) * (dx < 0 ? 0.4 : 0.2);
+                
+                if (Input.jetBurstR > 0.02) {
+                    const burstFalloff = Math.exp(-dist / 50);
+                    fy -= Input.jetBurstR * burstFalloff * 1.8;
+                    fx -= Input.jetBurstR * burstFalloff * 0.4 * (dx < 0 ? 1 : 0.3);
+                }
+            }
+
+            // Add convection currents (circular water movement)
+            const convectionX = Math.sin(this.time * 0.5 + y * 0.02) * PHYSICS.convectionStrength;
+            const convectionY = Math.cos(this.time * 0.3 + x * 0.015) * PHYSICS.convectionStrength * 0.5;
+            fx += convectionX;
+            fy += convectionY;
+
+            return { x: fx, y: fy };
+        }
+
+        drawBubbles() {
+            this.bubbles.forEach(b => b.draw());
+        }
+    }
+
+    // --- Bubble ---
+    class Bubble {
+        constructor(x) {
+            this.x = x;
+            this.y = FLOOR_Y + 5;
+            this.vy = -1.2 - Math.random() * 1.0;
+            this.vx = (Math.random() - 0.5) * 0.2;
+            this.size = 1.3 + Math.random() * 1.5;
+            this.life = 1;
+            this.wobblePhase = Math.random() * Math.PI * 2;
+        }
+
+        update() {
+            this.y += this.vy;
+            this.x += this.vx + Math.sin(this.wobblePhase + this.y * 0.04) * 0.15;
+            this.life -= 0.010;
+            this.vy *= 0.997;
+            return this.life > 0 && this.y > 10;
+        }
+
+        draw() {
+            ctx.fillStyle = `rgba(255,255,255,${this.life * 0.6})`;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = `rgba(255,255,255,${this.life * 0.8})`;
+            ctx.beginPath();
+            ctx.arc(this.x - this.size * 0.25, this.y - this.size * 0.25, this.size * 0.25, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // --- Pole ---
+    class Pole {
+        constructor(x, h) {
+            this.x = x;
+            this.h = h;
+            this.yBase = FLOOR_Y;
+            this.yTop = FLOOR_Y - h;
+        }
+        
+        draw() {
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.15)';
+            ctx.beginPath();
+            ctx.ellipse(this.x + 2, this.yBase + 2, 10, 4, 0, 0, Math.PI*2);
+            ctx.fill();
+            
+            // Pole body
+            ctx.fillStyle = '#fdd835';
+            ctx.beginPath();
+            ctx.roundRect(this.x - 3, this.yTop, 6, this.h, 3);
+            ctx.fill();
+            
+            // Highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.beginPath();
+            ctx.roundRect(this.x - 2, this.yTop + 2, 2, this.h - 4, 1);
+            ctx.fill();
+            
+            // Base
+            ctx.fillStyle = '#fbc02d';
+            ctx.beginPath();
+            ctx.ellipse(this.x, this.yBase, 10, 4, 0, 0, Math.PI*2);
+            ctx.fill();
+            
+            // Top cap
+            ctx.fillStyle = '#ffeb3b';
+            ctx.beginPath();
+            ctx.arc(this.x, this.yTop, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // --- Ring ---
+    class Ring {
+        constructor(x, y, color) {
+            this.pos = { x: x, y: y };
+            this.vel = { x: 0, y: 0 };
+            this.radius = PHYSICS.ringOuterRadius;
+            this.innerRadius = PHYSICS.ringInnerRadius;
+            this.color = color;
+            this.angle = 0;
+            this.angleVel = 0;
+            this.state = 'free';
+            this.pole = null;
+            this.stackY = 0;
+            this.prevY = y;  // Track previous Y for landing direction
+        }
+
+        update(waterField, allRings) {
+            if (this.state === 'stacked' || this.state === 'sliding') {
+                this.updateOnPole(waterField);
+            } else {
+                this.updateFree(waterField, allRings);
+            }
+            
+            // Store previous position for direction detection
+            this.prevY = this.pos.y;
+        }
+
+        updateFree(waterField, allRings) {
+            // 1. Gravity
+            this.vel.y += PHYSICS.gravity;
+
+            // 2. Buoyancy
+            this.vel.y -= PHYSICS.buoyancy;
+
+            // 3. Water current from jets
+            const current = waterField.getCurrentAt(this.pos.x, this.pos.y);
+            this.vel.x += current.x * PHYSICS.jetCurrentStrength;
+            this.vel.y += current.y * PHYSICS.jetCurrentStrength;
+
+            // 4. Ring-to-ring collisions
+            this.handleRingCollisions(allRings);
+
+            // 5. Natural water movement
+            this.applyNaturalMovement();
+
+            // 6. Water resistance
+            this.vel.x *= PHYSICS.waterDragX;
+            this.vel.y *= PHYSICS.waterDragY;
+
+            // 7. Clamp velocity
+            const speed = Math.sqrt(this.vel.x * this.vel.x + this.vel.y * this.vel.y);
+            if (speed > PHYSICS.maxVelocity) {
+                const scale = PHYSICS.maxVelocity / speed;
+                this.vel.x *= scale;
+                this.vel.y *= scale;
+            }
+
+            // 8. Update position
+            this.pos.x += this.vel.x;
+            this.pos.y += this.vel.y;
+
+            // 9. Update rotation
+            this.updateRotation();
+
+            // 10. Handle boundaries
+            this.handleBoundaryCollisions();
+
+            // 11. Check pole landing (must come from TOP)
+            this.checkPoleLanding();
+        }
+
+        handleRingCollisions(allRings) {
+            for (const other of allRings) {
+                if (other === this) continue;
+                if (other.state !== 'free') continue;
+
+                const dx = other.pos.x - this.pos.x;
+                const dy = other.pos.y - this.pos.y;
+                const distSq = dx * dx + dy * dy;
+                const minDist = PHYSICS.ringCollisionRadius;
+
+                if (distSq < minDist * minDist && distSq > 0.01) {
+                    const dist = Math.sqrt(distSq);
+                    const overlap = minDist - dist;
+                    
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+
+                    // Separate rings
+                    const separation = overlap * 0.5;
+                    this.pos.x -= nx * separation;
+                    this.pos.y -= ny * separation;
+
+                    // Velocity exchange
+                    const relVelX = this.vel.x - other.vel.x;
+                    const relVelY = this.vel.y - other.vel.y;
+                    const relVelDotN = relVelX * nx + relVelY * ny;
+
+                    if (relVelDotN > 0) {
+                        const impulse = relVelDotN * PHYSICS.ringCollisionForce * PHYSICS.ringCollisionDamping;
+                        this.vel.x -= impulse * nx;
+                        this.vel.y -= impulse * ny;
+                        other.vel.x += impulse * nx;
+                        other.vel.y += impulse * ny;
+                    }
+                }
+            }
+        }
+
+        updateOnPole(waterField) {
+            const current = waterField.getCurrentAt(this.pos.x, this.pos.y);
+            const forceStrength = Math.sqrt(current.x * current.x + current.y * current.y);
+
+            // Unseat if enough force
+            if (forceStrength > PHYSICS.stackUnseatThreshold) {
+                this.state = 'free';
+                this.pole = null;
+                this.vel.x = current.x * 2.5 + (Math.random() - 0.5) * 0.4;
+                this.vel.y = current.y * 2;
+                return;
+            }
+
+            // Gentle response to current
+            if (forceStrength > 0.05) {
+                this.pos.x = this.pole.x + Math.sin(Date.now() * 0.012) * forceStrength * 4;
+                this.angle = Math.sin(Date.now() * 0.008) * forceStrength * 0.15;
+            }
+
+            // Slide down
+            if (this.state === 'sliding') {
+                this.pos.y += PHYSICS.stackSlideSpeed;
+                if (this.pos.y >= this.stackY) {
+                    this.pos.y = this.stackY;
+                    this.state = 'stacked';
+                }
+            }
+
+            // Idle wobble
+            if (this.state === 'stacked') {
+                const wobble = Math.sin(Date.now() * 0.003 + this.stackY * 0.1) * 0.25;
+                this.pos.x = this.pole.x + wobble;
+                this.angle = Math.sin(Date.now() * 0.002 + this.stackY * 0.05) * 0.05;
+            }
+        }
+
+        applyNaturalMovement() {
+            // Random turbulence
+            this.vel.x += (Math.random() - 0.5) * PHYSICS.turbulence;
+            this.vel.y += (Math.random() - 0.5) * PHYSICS.turbulence;
+            
+            // Gentle wobble
+            const wobble = Math.sin(Date.now() * 0.001 + this.pos.x * 0.1) * PHYSICS.wobbleStrength;
+            this.vel.x += wobble;
+        }
+
+        updateRotation() {
+            const targetAngle = this.vel.x * 0.12;
+            this.angleVel += (targetAngle - this.angle) * 0.06;
+            this.angleVel *= 0.92;
+            this.angle += this.angleVel;
+            this.angle = Math.max(-0.4, Math.min(0.4, this.angle));
+        }
+
+        handleBoundaryCollisions() {
+            if (this.pos.x < WALL_LEFT + this.radius) {
+                this.pos.x = WALL_LEFT + this.radius;
+                this.vel.x *= -0.3;
+            }
+            if (this.pos.x > WALL_RIGHT - this.radius) {
+                this.pos.x = WALL_RIGHT - this.radius;
+                this.vel.x *= -0.3;
+            }
+            if (this.pos.y < CEILING_Y + this.radius) {
+                this.pos.y = CEILING_Y + this.radius;
+                this.vel.y *= -0.2;
+            }
+            if (this.pos.y > FLOOR_Y - this.radius) {
+                this.pos.y = FLOOR_Y - this.radius;
+                this.vel.y *= -0.25;
+                this.vel.x *= 0.85;
+            }
+        }
+
+        checkPoleLanding() {
+            for (const pole of poles) {
+                const dx = this.pos.x - pole.x;
+                const absDx = Math.abs(dx);
+                const canFitOverPole = absDx < this.innerRadius;  // Ring hole must fit over pole
+                const speed = Math.sqrt(this.vel.x * this.vel.x + this.vel.y * this.vel.y);
+                
+                // CRITICAL: Ring must be coming from ABOVE (prevY < current Y, meaning falling down)
+                // AND must be above the pole top before, now passing through pole top area
+                const wasAbovePoleTop = this.prevY < pole.yTop + 5;
+                const isNowAtPoleTop = this.pos.y >= pole.yTop - 3 && this.pos.y <= pole.yTop + 12;
+                const isMovingDown = this.vel.y > 0;  // Must be descending
+                
+                // Landing conditions:
+                // 1. Ring hole can fit over pole
+                // 2. Ring was above pole top (coming from top)
+                // 3. Ring is now at pole top level
+                // 4. Ring is moving downward
+                // 5. Speed is slow enough
+                if (canFitOverPole && wasAbovePoleTop && isNowAtPoleTop && isMovingDown && speed < PHYSICS.poleLandingMaxSpeed) {
+                    // Successful landing!
+                    let stackCount = 0;
+                    rings.forEach(r => {
+                        if (r !== this && (r.state === 'stacked' || r.state === 'sliding') && r.pole === pole) {
+                            stackCount++;
+                        }
+                    });
+                    
+                    this.state = 'sliding';
+                    this.pole = pole;
+                    this.pos.x = pole.x;
+                    this.stackY = FLOOR_Y - 6 - (stackCount * 5);
+                    this.vel.x = 0;
+                    this.vel.y = 0;
+
+                    playSound('score');
+                    return;
+                }
+
+                // Side collision with pole shaft - bounce off, don't land
+                if (absDx >= this.innerRadius && absDx < this.radius + PHYSICS.poleWidth/2 + 2) {
+                    // Ring is hitting the pole from the side
+                    if (this.pos.y > pole.yTop + 8 && this.pos.y < FLOOR_Y - 5) {
+                        // Bounce off side
+                        if (dx < 0) {
+                            this.pos.x = pole.x - this.radius - PHYSICS.poleWidth/2 - 2;
+                            this.vel.x = -Math.abs(this.vel.x) * 0.4;
+                        } else {
+                            this.pos.x = pole.x + this.radius + PHYSICS.poleWidth/2 + 2;
+                            this.vel.x = Math.abs(this.vel.x) * 0.4;
+                        }
+                    }
+                }
+            }
+        }
+
+        draw() {
+            ctx.save();
+            ctx.translate(this.pos.x, this.pos.y);
+            ctx.rotate(this.angle);
+
+            // Shadow
+            ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.ellipse(1, 1, this.radius, this.radius * 0.55, 0, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Main ring
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 3.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, this.radius, this.radius * 0.55, 0, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Highlight
+            ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.ellipse(-2, -1, 4, 2.5, -0.3, 0, Math.PI);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+    }
+
+    // --- State ---
+    let rings = [];
+    const poles = [new Pole(80, 50), new Pole(160, 65)];
+    const colors = ['#e53935', '#43a047', '#fdd835', '#d81b60', '#8e24aa', '#fb8c00', '#039be5'];
+    let waterField;
+
+    function resetGame() {
+        rings = [];
+        waterField = new WaterField();
+        
+        for (let i = 0; i < 7; i++) {
+            const x = 35 + (i % 4) * 52 + Math.random() * 18;
+            const y = 50 + Math.floor(i / 4) * 40 + Math.random() * 15;
+            rings.push(new Ring(x, y, colors[i % colors.length]));
+        }
+        
+        winEl.classList.remove('show');
+    }
+
+    resetGame();
+
+    // --- Input ---
+    const btnL = document.getElementById('btn-left');
+    const btnR = document.getElementById('btn-right');
+
+    function updateInputPhysics() {
+        // Build up jet power while holding
+        if (Input.left) {
+            Input.jetPowerL = Math.min(Input.jetPowerL + PHYSICS.jetBuildupRate, PHYSICS.jetMaxPower);
+        } else {
+            Input.jetPowerL *= PHYSICS.jetDecay;
+        }
+
+        if (Input.right) {
+            Input.jetPowerR = Math.min(Input.jetPowerR + PHYSICS.jetBuildupRate, PHYSICS.jetMaxPower);
+        } else {
+            Input.jetPowerR *= PHYSICS.jetDecay;
+        }
+
+        // Burst decays fast
+        Input.jetBurstL *= 0.7;
+        Input.jetBurstR *= 0.7;
+        
+        Input.frameCount++;
+    }
+
+    function handlePress(side, isPressed) {
+        if (side === 'left') {
+            Input.left = isPressed;
+            if (isPressed) {
+                Input.jetBurstL = PHYSICS.jetBurstImpulse;
+                Input.jetPowerL = Math.max(Input.jetPowerL, 0.25);
+                playSound('pump');
+                btnL.classList.add('pressed');
+                
+                for (let i = 0; i < 5; i++) {
+                    waterField.bubbles.push(new Bubble(20 + Math.random() * 15));
+                }
+            } else {
+                btnL.classList.remove('pressed');
+            }
+        } else {
+            Input.right = isPressed;
+            if (isPressed) {
+                Input.jetBurstR = PHYSICS.jetBurstImpulse;
+                Input.jetPowerR = Math.max(Input.jetPowerR, 0.25);
+                playSound('pump');
+                btnR.classList.add('pressed');
+                
+                for (let i = 0; i < 5; i++) {
+                    waterField.bubbles.push(new Bubble(220 + Math.random() * 15));
+                }
+            } else {
+                btnR.classList.remove('pressed');
+            }
+        }
+    }
+
+    const bindBtn = (el, side) => {
+        el.addEventListener('mousedown', (e) => { e.preventDefault(); handlePress(side, true); });
+        el.addEventListener('mouseup', (e) => { e.preventDefault(); handlePress(side, false); });
+        el.addEventListener('mouseleave', (e) => { e.preventDefault(); handlePress(side, false); });
+        el.addEventListener('touchstart', (e) => { e.preventDefault(); handlePress(side, true); }, {passive: false});
+        el.addEventListener('touchend', (e) => { e.preventDefault(); handlePress(side, false); });
+    };
+
+    bindBtn(btnL, 'left');
+    bindBtn(btnR, 'right');
+
+    document.addEventListener('keydown', (e) => {
+        if (e.repeat) return;
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') handlePress('left', true);
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') handlePress('right', true);
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') handlePress('left', false);
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') handlePress('right', false);
+    });
+
+    winEl.addEventListener('click', resetGame);
+
+    // --- Drawing ---
+    function drawWaterEffect() {
+        const time = waterField.time;
+        ctx.fillStyle = 'rgba(255,255,255,0.02)';
+        
+        for (let i = 0; i < 3; i++) {
+            const x = (Math.sin(time + i * 2) * 30 + 130);
+            const y = (Math.cos(time * 0.7 + i) * 20 + 80);
+            ctx.beginPath();
+            ctx.ellipse(x, y, 20, 10, time * 0.5 + i, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Jet flow visualization
+        if (Input.jetPowerL > 0.1 || Input.jetPowerR > 0.1) {
+            ctx.fillStyle = 'rgba(255,255,255,0.02)';
+            
+            if (Input.jetPowerL > 0.1) {
+                for (let i = 0; i < 6; i++) {
+                    const x = 20 + i * 12 + Math.sin(time * 2.5 + i) * 4;
+                    const y = FLOOR_Y - i * 20 - Math.sin(time * 3) * 2;
+                    ctx.beginPath();
+                    ctx.ellipse(x, y, 12, 6, 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            
+            if (Input.jetPowerR > 0.1) {
+                for (let i = 0; i < 6; i++) {
+                    const x = 240 - i * 12 + Math.sin(time * 2.5 + i) * 4;
+                    const y = FLOOR_Y - i * 20 - Math.sin(time * 3) * 2;
+                    ctx.beginPath();
+                    ctx.ellipse(x, y, 12, 6, -0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+    }
+
+    // --- Main Loop ---
+    function loop() {
+        ctx.clearRect(0, 0, width, height);
+        
+        updateInputPhysics();
+        waterField.update();
+        drawWaterEffect();
+        poles.forEach(p => p.draw());
+        waterField.drawBubbles();
+
+        let stackedCount = 0;
+        rings.forEach(ring => {
+            ring.update(waterField, rings);
+            if (ring.state === 'stacked') stackedCount++;
+            ring.draw();
+        });
+
+        scoreEl.innerText = stackedCount + " / " + rings.length;
+        
+        if (stackedCount === rings.length && !winEl.classList.contains('show')) {
+            winEl.classList.add('show');
+            playSound('score');
+        }
+
+        requestAnimationFrame(loop);
+    }
+
+    loop();
+
+</script>
+</body>
+</html>
